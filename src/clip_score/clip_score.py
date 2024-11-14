@@ -88,7 +88,7 @@ class DummyDataset(Dataset):
             )
         self.real_folder = self._combine_without_prefix(real_path)
         self.real_flag = real_flag
-        self.fake_foler = self._combine_without_prefix(fake_path)
+        self.fake_folder = self._combine_without_prefix(fake_path)
         self.fake_flag = fake_flag
         self.transform = transform
         self.tokenizer = tokenizer
@@ -101,7 +101,7 @@ class DummyDataset(Dataset):
         if index >= len(self):
             raise IndexError
         real_path = self.real_folder[index]
-        fake_path = self.fake_foler[index]
+        fake_path = self.fake_folder[index]
         real_data = self._load_modality(real_path, self.real_flag)
         fake_data = self._load_modality(fake_path, self.fake_flag)
 
