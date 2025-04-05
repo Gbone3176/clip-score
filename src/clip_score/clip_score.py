@@ -27,7 +27,9 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+
 import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 import os.path as osp
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 
@@ -42,6 +44,9 @@ except ImportError:
     # If tqdm is not available, provide a mock version of it
     def tqdm(x):
         return x
+
+from urllib.request import urlopen
+from open_clip import create_model_from_pretrained, get_tokenizer
 
 
 parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
@@ -60,6 +65,8 @@ parser.add_argument('--real_flag', type=str, default='img',
 parser.add_argument('--fake_flag', type=str, default='txt',
                     help=('The modality of real path. '
                           'Default to txt'))
+parser.add_argument('--biomed', action='store_true', default=False, 
+                    help='Set to True when using Med mode')
 parser.add_argument('real_path', type=str, 
                     help=('Paths to the generated images or '
                           'to .npz statistic files'))
@@ -160,6 +167,9 @@ def calculate_clip_score(dataloader, model, real_flag, fake_flag):
         fake = batch_data['fake']
         fake_features = forward_modality(model, fake, fake_flag)
         
+
+
+        
         # normalize features
         real_features = real_features / real_features.norm(dim=1, keepdim=True).to(torch.float32)
         fake_features = fake_features / fake_features.norm(dim=1, keepdim=True).to(torch.float32)
@@ -167,7 +177,10 @@ def calculate_clip_score(dataloader, model, real_flag, fake_flag):
         # calculate scores
         # score = logit_scale * real_features @ fake_features.t()
         # score_acc += torch.diag(score).sum()
+
         score = logit_scale * (fake_features * real_features).sum()
+
+        # score = (fake_features * real_features).sum()
         score_acc += score
         sample_num += real.shape[0]
     
@@ -205,22 +218,33 @@ def main():
         num_workers = min(num_cpus, 8) if num_cpus is not None else 0
     else:
         num_workers = args.num_workers
+        
 
-    print('Loading CLIP model: {}'.format(args.clip_model))
-    model, preprocess = clip.load(args.clip_model, device=device)
-    
+    if args.biomed:
+        args.clip_model = 'hf-hub:microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224'
+        print('\nLoading BiomedCLIP model: {}'.format(args.clip_model))
+        print("\n")
+        model, preprocess = create_model_from_pretrained(args.clip_model)
+        tokenizer = get_tokenizer(args.clip_model)
+    else:
+        print('Loading CLIP model: {}'.format(args.clip_model))
+        model, preprocess = clip.load(args.clip_model, device=device)
+        tokenizer=clip.tokenize
+    model.eval()
+    model.to(device)
+
+    print("logit_scale:", model.logit_scale.exp().item())
+
     dataset = DummyDataset(args.real_path, args.fake_path,
                            args.real_flag, args.fake_flag,
-                           transform=preprocess, tokenizer=clip.tokenize)
+                           transform=preprocess, tokenizer=tokenizer)
     dataloader = DataLoader(dataset, args.batch_size, 
                             num_workers=num_workers, pin_memory=True)
     
     print('Calculating CLIP Score:')
     clip_score = calculate_clip_score(dataloader, model,
                                       args.real_flag, args.fake_flag)
-    clip_score = clip_score.cpu().item()
     print('CLIP Score: ', clip_score)
-
 
 if __name__ == '__main__':
     main()

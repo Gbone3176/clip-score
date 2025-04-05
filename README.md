@@ -19,6 +19,10 @@ Requirements:
   ```
   pip install clip-score
   ```
+If you want to test the CLIP scores in the biomedical field, please additionally install the following dependencies:
+```
+pip install open_clip_torch==2.23.0 transformers==4.35.2 matplotlib
+```
 
 ## Data Input Specifications
 This project is designed to process paired images and text files, and therefore requires two directories: one for images and one for text files.
@@ -61,6 +65,8 @@ python -m clip_score path/to/image path/to/text
 ```
 
 If GPU is available, the project is set to run automatically on a GPU by default. If you want to specify a particular GPU, you can use the `--device cuda:N` flag when running the script, where `N` is the index of the GPU you wish to use. In case you want to run the program on a CPU instead, you can specify this by using the `--device cpu` flag.
+
+If you want to test the CLIP scores in the biomedical field, please additionally add the `--biomed` flag.
 
 ## Computing CLIP Score within the Same Modality
 
